@@ -6,37 +6,64 @@ public record TrackName(string Name);
 
 public abstract partial class TestCaseBuilder
 {
-    protected Repository<Track> TrackRepository = new ();
-    private readonly IList<Task> _constructionOfTracks = new List<Task>();
+    // See TestCaseBuilder.Album.cs for comments.
 
+    protected readonly Repository<Track> TrackRepository = new ();
+    private readonly IList<Task> _constructionOfTracks = new List<Task>();
     private readonly ConcurrentQueue<ConstructedTrack> _constructedTracks = new();
 
-    public TestCaseBuilder WithTrack(TrackName? name = null, Action<Track>? configure = null)
+    public TestCaseBuilder WithTrack(
+        TrackName? name = null,
+        Action<Track>? configure = null,
+        UserName? userNamed = null,
+        AlbumName? albumNamed = null)
     {
-        var task = Task.Run(() =>  AddTrackAsync(name, configure));
-
+        var task = Task.Run(() =>  AddTrackAsync(name, configure, userNamed, albumNamed));
         _constructionOfTracks.Add(task);
-
         return this;
     }
 
-    public async Task<Track> AddTrackAsync(TrackName? name = null, Action<Track>? configure = null)
+    public async Task<Track> AddTrackAsync(
+        TrackName? name = null,
+        Action<Track>? configure = null,
+        UserName? userNamed = null,
+        AlbumName? albumNamed = null)
     {
-        // TODO Add album reference
+        var album = await AlbumOrThrowAsync(albumNamed);
+        var user = await UserOrThrowAsync(userNamed);
 
-        var track = new Track { Title = name?.Name ?? "Arbitrary track" };
+        var track = new Track
+        {
+            AlbumId = album.Id,
+            Title = name?.Name ?? "Arbitrary track"
+        };
         configure?.Invoke(track);
-        await TrackRepository.SaveAsync(track, CancellationToken.None);
+
+        await TrackRepository.SaveAsync(user.Id, track, CancellationToken.None);
 
         _constructedTracks.Enqueue(new ConstructedTrack(track, name ?? NextTrackName()));
 
         return track;
     }
 
-    public async Task<Track> TrackOrThrowAsync(TrackName? name = null)
+    public async Task<Track> TrackOrThrowAsync(
+        TrackName? name = null,
+        UserName? userNamed = null)
     {
-        await Task.CompletedTask;
-        throw new NotImplementedException();
+        await Task.WhenAll(_constructionOfTracks);
+
+        if (name is null && _constructedTracks.Count != 1)
+            throw new Exception("Implicit access of tracks is only allowed when one track exists. Qualify using name.");
+
+        var constructed = name is null
+            ? _constructedTracks.First()
+            : _constructedTracks.FirstOrDefault(i => i.IsMatch(name));
+
+        if (constructed is null)
+            throw new Exception($"No track found with the test name: {name?.Name}");
+
+        var user = await UserOrThrowAsync(userNamed);
+        return await TrackRepository.LoadAsync(user.Id, constructed.Id, CancellationToken.None);
     }
 
     protected TrackName NextTrackName() => new($"Artist {_constructedTracks.Count + 1}");

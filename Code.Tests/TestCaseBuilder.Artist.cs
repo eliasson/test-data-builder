@@ -6,40 +6,46 @@ public record ArtistName(string Name);
 
 public partial class TestCaseBuilder
 {
-    protected readonly Repository<Artist> ArtistRepository = new ();
+    // See TestCaseBuilder.Album.cs for comments.
 
+    protected readonly Repository<Artist> ArtistRepository = new ();
     private readonly IList<Task> _constructionOfArtists = new List<Task>();
     private readonly ConcurrentQueue<ConstructedArtist> _constructedArtists = new();
 
-
-    public TestCaseBuilder WithArtist(ArtistName? name = null, Action<Artist>? configure = null)
+    public TestCaseBuilder WithArtist(
+        ArtistName? name = null,
+        Action<Artist>? configure = null,
+        UserName? userNamed = null)
     {
-        // Since this is a synchronous method we only fire off a task to do the construction without
-        // waiting for its result.
-        var task = Task.Run(() =>  AddArtistAsync(name, configure));
-
-        // Keep a reference to the construction task so it can be awaited elsewhere.
+        var task = Task.Run(() =>  AddArtistAsync(name, configure, userNamed));
         _constructionOfArtists.Add(task);
-
         return this;
     }
 
-    public async Task<Artist> AddArtistAsync(ArtistName? name = null, Action<Artist>? configure = null)
+    public async Task<Artist> AddArtistAsync(
+        ArtistName? name = null,
+        Action<Artist>? configure = null,
+        UserName? userNamed = null)
     {
-        // Create an arbitrary artist.
-        var artist = new Artist { Name = name?.Name ?? "Arbitrary artist" };
+        var user = await UserOrThrowAsync(userNamed);
 
-        // Let the caller modify the artist before saving it.
+        var artist = new Artist
+        {
+            UserId = user.Id,
+            Name = name?.Name ?? "Arbitrary artist"
+        };
+
         configure?.Invoke(artist);
-        await ArtistRepository.SaveAsync(artist, CancellationToken.None);
+        await ArtistRepository.SaveAsync(user.Id, artist, CancellationToken.None);
 
-        // Remember the artist created by its test name so that it can be retrieved later.
         _constructedArtists.Enqueue(new ConstructedArtist(artist, name ?? NextArtistName()));
 
         return artist;
     }
 
-    public async Task<Artist> ArtistOrThrowAsync(ArtistName? name = null)
+    public async Task<Artist> ArtistOrThrowAsync(
+        ArtistName? name = null,
+        UserName? userNamed = null)
     {
         await Task.WhenAll(_constructionOfArtists);
 
@@ -53,9 +59,9 @@ public partial class TestCaseBuilder
         if (constructed is null)
             throw new Exception($"No artist found with the test name: {name?.Name}");
 
-        return await ArtistRepository.LoadAsync(constructed.Id, CancellationToken.None);
+        var user = await UserOrThrowAsync(userNamed);
+        return await ArtistRepository.LoadAsync(user.Id, constructed.Id, CancellationToken.None);
     }
-
 
     protected ArtistName NextArtistName() => new($"Artist {_constructedArtists.Count + 1}");
 }

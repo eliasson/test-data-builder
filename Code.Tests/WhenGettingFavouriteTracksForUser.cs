@@ -2,23 +2,21 @@
 
 public class WhenGettingFavouriteTracksForUser
 {
-    private static readonly TrackName TrackOne = new("Track One");
-    private static readonly TrackName TrackTwo = new("Track Two");
     private FavouriteTestCase _tc = null!;
 
     [OneTimeSetUp]
-    public async Task SetUp()
+    public async Task MarkTrackAsFavourite()
     {
         _tc = await new FavouriteTestCase()
+            .WithUser()
             .WithArtist()
             .WithAlbum()
-            .WithTrack(name: TrackOne)
-            .WithTrack(name: TrackTwo, configure: t => t.Title = "Pictures of you")
+            .WithTrack(configure: t => t.Title = "Glassy Eyes")
             .AsFavouriteTestCase()
             .BuildAsync();
 
         var user = await _tc.UserOrThrowAsync();
-        var track = await _tc.TrackOrThrowAsync(TrackTwo);
+        var track = await _tc.TrackOrThrowAsync();
 
         await _tc.FavouriteService.SetFavouriteTracksAsync(user.Id, track.Id, CancellationToken.None);
     }
@@ -34,6 +32,6 @@ public class WhenGettingFavouriteTracksForUser
 
         var favourites = favouriteTracks.Select(t => t.Title);
 
-        Assert.That(favourites, Is.EqualTo(new [] { "Pictures of you" }));
+        Assert.That(favourites, Is.EqualTo(new [] { "Glassy Eyes" }));
     }
 }

@@ -1,6 +1,4 @@
-﻿#nullable enable
-
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 
 namespace Code;
@@ -12,24 +10,52 @@ public interface IAggregate
 
 public class Repository<T> where T : IAggregate
 {
-    private ConcurrentDictionary<Guid, T> Storage = new ();
+    // Pretend this repository is multi-tenant , where the User ID actually has some effect.
 
-    public async Task SaveAsync(T aggregate, CancellationToken ct)
+    private readonly ConcurrentDictionary<Guid, T> _storage = new ();
+
+    public async Task SaveAsync(Guid userId, T aggregate, CancellationToken ct)
     {
         await Task.CompletedTask;
-        Storage[aggregate.Id] = aggregate;
+        _storage[aggregate.Id] = aggregate;
     }
 
-    public async Task<T> LoadAsync(Guid id, CancellationToken ct)
+    public async Task<T> LoadAsync(Guid userId, Guid id, CancellationToken ct)
     {
         await Task.CompletedTask;
-        return Storage[id] ?? throw new Exception("Not found");
+        return _storage[id] ?? throw new Exception("Not found");
     }
 
-    public async IAsyncEnumerable<T> LoadAllAsync([EnumeratorCancellation] CancellationToken ct)
+    public async IAsyncEnumerable<T> LoadAllAsync(Guid userId, [EnumeratorCancellation] CancellationToken ct)
     {
         await Task.CompletedTask;
-        foreach (var agg in Storage.Values)
+        foreach (var agg in _storage.Values)
             yield return agg;
     }
 }
+
+// Custom repository since there is no owner of users.
+public class UserRepository
+{
+    private readonly ConcurrentDictionary<Guid, User> _storage = new ();
+
+    public async Task SaveAsync(User aggregate, CancellationToken ct)
+    {
+        await Task.CompletedTask;
+        _storage[aggregate.Id] = aggregate;
+    }
+
+    public async Task<User> LoadAsync(Guid id, CancellationToken ct)
+    {
+        await Task.CompletedTask;
+        return _storage[id] ?? throw new Exception("Not found");
+    }
+
+    public async IAsyncEnumerable<User> LoadAllAsync([EnumeratorCancellation] CancellationToken ct)
+    {
+        await Task.CompletedTask;
+        foreach (var agg in _storage.Values)
+            yield return agg;
+    }
+}
+

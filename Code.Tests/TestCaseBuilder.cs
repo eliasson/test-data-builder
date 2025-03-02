@@ -6,7 +6,10 @@ public abstract partial class TestCaseBuilder
     {
         // Wait for all scheduled construction of aggregates to complete. Wait in order parent to child aggregate since
         // children typically refer to their parent.
+        await Task.WhenAll(_constructionOfUsers);
         await Task.WhenAll(_constructionOfArtists);
+        await Task.WhenAll(_constructionOfAlbums);
+        await Task.WhenAll(_constructionOfTracks);
     }
 }
 
@@ -18,7 +21,7 @@ public class FavouriteTestCase : TestCaseBuilder
     {
         await BuildConstructedAggregatesAsync();
 
-        FavouriteService = new FavouriteService(TrackRepository);
+        FavouriteService = new FavouriteService(UserRepository, TrackRepository);
 
         return this;
     }

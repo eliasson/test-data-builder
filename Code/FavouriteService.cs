@@ -1,15 +1,16 @@
 ﻿namespace Code;
 
-public class FavouriteService(Repository<Track> repository)
+public class FavouriteService(UserRepository userRepository, Repository<Track> trackRepository)
 {
     public async Task SetFavouriteTracksAsync(Guid userId, Guid trackId, CancellationToken ct)
     {
-
+        var track = await trackRepository.LoadAsync(userId, trackId, ct);
+        track.MarkAsFavourite();
+        await trackRepository.SaveAsync(userId, track, ct);
     }
 
-    public async IAsyncEnumerable<Track> GetFavouriteTracksAsync(Guid userId, CancellationToken ct)
+    public IAsyncEnumerable<Track> GetFavouriteTracksAsync(Guid userId, CancellationToken ct)
     {
-        await Task.CompletedTask;
-        yield break;
+        return trackRepository.LoadAllAsync(userId, ct).Where(track => track.IsFavorite);
     }
 }
