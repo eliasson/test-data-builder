@@ -14,8 +14,8 @@ public partial class TestCaseBuilder
 
     public TestCaseBuilder WithUser(UserName? name = null, Action<User>? configure = null)
     {
-        var user = Task.Run(() =>  AddUserAsync(name, configure));
-        _constructionOfUsers.Add(user);
+        var task = Task.Run(() => AddUserAsync(name, configure));
+        _constructionOfUsers.Add(task);
         return this;
     }
 
